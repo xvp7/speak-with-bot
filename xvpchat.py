@@ -1,15 +1,23 @@
+# ========================================
+# بوت تليجرام ذكي مبسط مع حفظ المحادثات
+# جاهز للعمل على Railway
+# ========================================
+
+import os
+import json
+import random
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
-import random
-import json
-import os
 
 # -----------------------------
-# ملف حفظ المحادثات (لكل مستخدم)
+# إعداد المتغيرات
 # -----------------------------
-CONTEXT_FILE = "user_context.json"
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # سيتم قراءته من Environment Variables على Railway
+CONTEXT_FILE = "user_context.json"   # ملف حفظ المحادثات لكل مستخدم
 
-# تحميل البيانات الموجودة أو إنشاء ملف جديد
+# -----------------------------
+# تحميل البيانات السابقة أو إنشاء ملف جديد
+# -----------------------------
 if os.path.exists(CONTEXT_FILE):
     with open(CONTEXT_FILE, "r", encoding="utf-8") as f:
         user_context = json.load(f)
@@ -17,25 +25,29 @@ else:
     user_context = {}
 
 # -----------------------------
-# دوال مساعدة لحفظ واسترجاع السياق
+# دوال مساعدة لحفظ واسترجاع سياق المستخدم
 # -----------------------------
 def save_context():
+    """حفظ جميع بيانات المستخدمين في ملف JSON"""
     with open(CONTEXT_FILE, "w", encoding="utf-8") as f:
         json.dump(user_context, f, ensure_ascii=False, indent=2)
 
 def update_user_context(user_id, key, value):
+    """تحديث بيانات مستخدم محدد"""
     if str(user_id) not in user_context:
         user_context[str(user_id)] = {}
     user_context[str(user_id)][key] = value
     save_context()
 
 def get_user_context(user_id, key, default=None):
+    """استرجاع قيمة من بيانات المستخدم"""
     return user_context.get(str(user_id), {}).get(key, default)
 
 # -----------------------------
 # دوال البوت
 # -----------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """الرد على الأمر /start"""
     greetings = [
         "مرحباً! 😄 أنا بوت ودود، دعنا نتحدث معًا.",
         "أهلاً! سعيد برؤيتك! 🌟",
@@ -47,10 +59,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     update_user_context(update.message.from_user.id, "last_topic", "start")
 
 async def reply_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """الردود الذكية بناءً على محتوى رسالة المستخدم"""
     user_id = update.message.from_user.id
     text = update.message.text.lower()
-
-    # استرجاع آخر موضوع لتخصيص الردود
     last_topic = get_user_context(user_id, "last_topic", "general")
 
     # -----------------------------
@@ -71,7 +82,11 @@ async def reply_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     how_are_you_replies = ["أنا بخير، شكرًا! وأنت؟ 😄", "تمام الحمد لله، كيف يومك؟", "كل شيء على ما يرام! وأخبارك؟"]
     thanks_replies = ["على الرحب والسعة! 😊", "العفو! أي وقت 😎", "لا شكر على واجب!"]
     goodbye_replies = ["إلى اللقاء! 👋", "باي باي! أراك لاحقًا! 😄", "اعتنِ بنفسك! 🌟"]
-    jokes_replies = ["مرة واحد ذهب للفضاء وقال للقمر: أهلاً صديقي! 😂", "ليش الكمبيوتر دايمًا حزين؟ لأنه عنده مشاكل بالويندوز 😅", "مرة قطة قالت للكلب: أنا أفضل منك! والكلب قال: كل واحد عنده مزاياه 😸"]
+    jokes_replies = [
+        "مرة واحد ذهب للفضاء وقال للقمر: أهلاً صديقي! 😂",
+        "ليش الكمبيوتر دايمًا حزين؟ لأنه عنده مشاكل بالويندوز 😅",
+        "مرة قطة قالت للكلب: أنا أفضل منك! والكلب قال: كل واحد عنده مزاياه 😸"
+    ]
     feelings_replies = ["أوه 😔 أتمنى أن يتحسن يومك!", "واو! سعيد بسماع ذلك 😄", "أفهم شعورك تمامًا، كل شيء سيكون أفضل!", "حاول الابتسامة قليلاً 😌"]
     advice_replies = ["حاول التركيز على الأشياء الصغيرة الجميلة 😊", "خذ نفس عميق واستمتع باللحظة!", "مهم أن تهتم بنفسك أولاً 🌟", "ابتسم! 😄 الحياة أقصر من أن نضيعها"]
     default_replies = ["ممم… أحببت ما قلته!", "هههه، أنت مضحك!", "واو! لم أفكر بذلك من قبل 😲", "أخبرني شيئًا آخر! 😁"]
@@ -101,7 +116,7 @@ async def reply_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply = random.choice(advice_replies)
         update_user_context(user_id, "last_topic", "advice")
     else:
-        # الردود تعتمد على آخر موضوع لتكون أكثر شخصية
+        # الرد يعتمد على آخر موضوع لتخصيص التفاعل
         if last_topic == "how_are_you":
             reply = "تمام! 😄 وأنت؟ حدثني عن يومك!"
         elif last_topic == "feelings":
@@ -113,10 +128,11 @@ async def reply_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply)
 
 # -----------------------------
-# إعداد البوت وتشغيله
+# تشغيل البوت
 # -----------------------------
 if __name__ == "__main__":
-    BOT_TOKEN = "حط توكــنــــك هنااااااااا"  
+    if not BOT_TOKEN:
+        raise ValueError("الرجاء وضع متغير البيئة BOT_TOKEN في Railway أو على جهازك")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
